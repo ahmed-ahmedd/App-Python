@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Price Comparison Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .navbar {
+            background-color: #343a40;
+        }
+        .main-container {
+            margin-top: 2rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            margin-bottom: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .card-header {
+            background-color: #212529;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .competitor-item {
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+        }
+        .competitor-cheaper {
+            border-left-color: #198754;
+        }
+        .competitor-expensive {
+            border-left-color: #dc3545;
+        }
+        .price-diff {
+            font-weight: bold;
+        }
+        .price-diff.cheaper {
+            color: #198754;
+        }
+        .price-diff.expensive {
+            color: #dc3545;
+        }
+        .search-form {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        .footer {
+            background-color: #343a40;
+            color: #adb5bd;
+            padding: 1.5rem 0;
+            margin-top: 2rem;
+        }
+        .flash-messages {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 9999;
+            max-width: 350px;
+        }
+        .update-btn {
+            color: white;
+            text-decoration: none;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+        }
+        .update-btn i {
+            margin-right: 0.25rem;
+        }
+        .currency-flag {
+            width: 20px;
+            height: auto;
+            margin-right: 5px;
+        }
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .source-badge {
+            display: inline-block;
+            padding: 5px 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .source-amazon {
+            background-color: #ff9900;
+            color: black;
+        }
+        .source-ebay {
+            background-color: #e53238;
+            color: white;
+        }
+        .source-walmart {
+            background-color: #0071ce;
+            color: white;
+        }
+        .source-jumia {
+            background-color: #f68b1e;
+            color: white;
+        }
+        .source-aliexpress {
+            background-color: #e62e04;
+            color: white;
+        }
+        .source-noon {
+            background-color: #feee00;
+            color: black;
+        }
+        .search-indicator {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .market-checkbox-container {
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            background-color: #f8f9fa;
+        }
+        .market-checkbox-container h5 {
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+        .market-checkbox-column {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-globe me-2"></i>
+                Global Price Comparison Tool
+            </a>
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/export">
+                        <i class="fas fa-file-export me-1"></i>
+                        Export to Excel
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <!-- Refresh Button -->
+                    <button id="refresh-button" class="btn btn-danger ms-2">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Clear & Refresh
+                    </button>
+                </li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    <div class="flash-messages">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Main Content -->
+    <div class="container main-container">
+        <!-- Search Form -->
+        <div class="search-form">
+            <h3 class="mb-3">
+                <i class="fas fa-search me-2"></i>
+                Compare Your Price
+            </h3>
+            <form method="POST" action="/" id="search-form">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="product" class="form-label">Product Name</label>
+                        <input type="text" class="form-control" id="product" name="product" placeholder="e.g. iPhone 15 Pro Max 256GB" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="price" class="form-label">Your Price</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control" id="price" name="price" placeholder="e.g. 1099.99" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="currency" class="form-label">Currency</label>
+                        <select class="form-select" id="currency" name="currency">
+                            <option value="USD">US Dollar ($)</option>
+                            <option value="EGP">Egyptian Pound (£E)</option>
+                            <option value="GBP">British Pound (£)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label for="region" class="form-label">Region</label>
+                        <select class="form-select" id="region" name="region">
+                            <option value="all">All Regions</option>
+                            <option value="us">United States</option>
+                            <option value="eg">Egypt</option>
+                            <option value="uk">United Kingdom</option>
+                            <option value="global">Global</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="custom-markets" name="custom-markets">
+                            <label class="form-check-label" for="custom-markets">Select specific marketplaces</label>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12 market-checkbox-container" id="marketplaces-container" style="display: none;">
+                        <h5>Select Marketplaces</h5>
+                        <div class="row" id="marketplace-options">
+                            <!-- Marketplace checkboxes will be populated dynamically -->
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-12">
+                        <button type="submit" class="btn btn-primary" id="search-button">
+                            <i class="fas fa-search me-1"></i>
+                            Find Competitors
+                            <span class="loader" id="search-loader"></span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Search Indicator -->
+        <div class="search-indicator" id="search-indicator">
+            <div class="spinner-border text-primary mb-3" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h4>Searching multiple sources...</h4>
+            <p class="text-muted">This may take up to a minute. Please don't refresh the page.</p>
+        </div>
+        
+        <!-- No Products Message -->
+        {% if products|length == 0 %}
+            <div class="text-center py-5" id="no-products-message">
+                <div class="display-1 mb-3 text-muted">
+                    <i class="fas fa-search"></i>
+                </div>
+                <h3 class="text-muted">No products yet</h3>
+                <p class="text-muted">Start by entering a product name and price above</p>
+            </div>
+        {% endif %}
+        
+        <!-- Products List -->
+        {% for product in products %}
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <i class="fas fa-tag me-2"></i>
+                        <strong>{{ product.name }} - {{ product.display_price }}</strong>
+                    </div>
+                    <div>
+                        <small>Updated: {{ product.last_updated }}</small>
+                        <a href="{{ url_for('update', product_id=product.id) }}" class="btn btn-sm btn-dark ms-2 update-btn" id="update-btn-{{ product.id }}">
+                            <i class="fas fa-sync-alt"></i> Update
+                            <span class="loader" id="update-loader-{{ product.id }}"></span>
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if product.competitors|length == 0 %}
+                        <div class="text-center py-3 text-muted">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            No competitor prices found.
+                        </div>
+                    {% else %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Source</th>
+                                        <th>Price</th>
+                                        <th>Difference</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for comp in product.competitors %}
+                                        <tr class="competitor-item {% if comp.difference < 0 %}competitor-cheaper{% else %}competitor-expensive{% endif %}">
+                                            <td>{{ comp.title }}</td>
+                                            <td>
+                                                {% set source_class = 'source-amazon' if 'Amazon' in comp.source else 
+                                                                    'source-ebay' if 'eBay' in comp.source else 
+                                                                    'source-walmart' if 'Walmart' in comp.source else 
+                                                                    'source-jumia' if 'Jumia' in comp.source else 
+                                                                    'source-noon' if 'Noon' in comp.source else
+                                                                    'source-aliexpress' if 'AliExpress' in comp.source else 
+                                                                    'source-other' %}
+                                                <span class="source-badge {{ source_class }}">{{ comp.source }}</span>
+                                            </td>
+                                            <td>
+                                                {% if comp.display_price is defined %}
+                                                    {{ comp.display_price }}
+                                                {% else %}
+                                                    ${{ comp.price|round(2) }}
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <span class="price-diff {% if comp.difference < 0 %}cheaper{% else %}expensive{% endif %}">
+                                                    {% if comp.difference < 0 %}
+                                                        <i class="fas fa-arrow-down me-1"></i>
+                                                    {% else %}
+                                                        <i class="fas fa-arrow-up me-1"></i>
+                                                    {% endif %}
+                                                    ${{ comp.difference|abs|round(2) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a href="{{ url_for('safe_redirect', url=comp.url) }}" target="_blank" class="btn btn-sm btn-primary">
+                                                    <i class="fas fa-external-link-alt me-1"></i>
+                                                    View
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container text-center">
+            <p>&copy; ULEMT -  Global Price Comparison Tool</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Define marketplace data
+        const marketplaces = {
+            all: [
+                { id: 'amazon-us', name: 'Amazon US', region: 'us' },
+                { id: 'amazon-uk', name: 'Amazon UK', region: 'uk' },
+                { id: 'amazon-eg', name: 'Amazon Egypt', region: 'eg' },
+                { id: 'ebay-us', name: 'eBay US', region: 'us' },
+                { id: 'ebay-uk', name: 'eBay UK', region: 'uk' },
+                { id: 'walmart', name: 'Walmart', region: 'us' },
+                { id: 'jumia-eg', name: 'Jumia Egypt', region: 'eg' },
+                { id: 'noon-eg', name: 'Noon Egypt', region: 'eg' },
+                { id: 'aliexpress', name: 'AliExpress', region: 'global' }
+            ],
+            us: ['amazon-us', 'ebay-us', 'walmart'],
+            uk: ['amazon-uk', 'ebay-uk'],
+            eg: ['amazon-eg', 'jumia-eg', 'noon-eg'],
+            global: ['amazon-us', 'amazon-uk', 'ebay-us', 'ebay-uk', 'aliexpress']
+        };
+
+        // Function to update marketplace options based on selected region
+        function updateMarketplaces() {
+            const regionSelect = document.getElementById('region');
+            const selectedRegion = regionSelect.value;
+            const marketplaceContainer = document.getElementById('marketplace-options');
+            
+            // Clear existing options
+            marketplaceContainer.innerHTML = '';
+            
+            // Get marketplaces for the selected region
+            let relevantMarketplaces = [];
+            if (selectedRegion === 'all') {
+                relevantMarketplaces = marketplaces.all;
+            } else {
+                // Filter marketplaces by region
+                relevantMarketplaces = marketplaces.all.filter(mp => mp.region === selectedRegion);
+            }
+            
+            // Create checkboxes for each marketplace
+            relevantMarketplaces.forEach((marketplace, index) => {
+                const colDiv = document.createElement('div');
+                colDiv.className = 'col-md-4 market-checkbox-column';
+                
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'form-check';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.id = marketplace.id;
+                checkbox.name = 'marketplaces';
+                checkbox.value = marketplace.id;
+                checkbox.checked = true;
+                
+                const label = document.createElement('label');
+                label.className = 'form-check-label';
+                label.htmlFor = marketplace.id;
+                label.textContent = marketplace.name;
+                
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(label);
+                colDiv.appendChild(checkboxWrapper);
+                marketplaceContainer.appendChild(colDiv);
+            });
+        }
+        
+        // Document ready
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize marketplace options
+            updateMarketplaces();
+            
+            // Setup region change event
+            document.getElementById('region').addEventListener('change', updateMarketplaces);
+            
+            // Setup custom markets checkbox
+            const customMarketsCheckbox = document.getElementById('custom-markets');
+            const marketplacesContainer = document.getElementById('marketplaces-container');
+            
+            customMarketsCheckbox.addEventListener('change', function() {
+                marketplacesContainer.style.display = this.checked ? 'block' : 'none';
+                
+                // Add or remove the 'marketplaces' hidden input from the form
+                const form = document.getElementById('search-form');
+                if (!this.checked) {
+                    // If unchecked, remove any existing hidden inputs for marketplaces
+                    const existingInputs = form.querySelectorAll('input[name="selected_marketplaces"]');
+                    existingInputs.forEach(input => input.remove());
+                }
+            });
+            
+            // Handle form submission to collect selected marketplaces
+            document.getElementById('search-form').addEventListener('submit', function(e) {
+                if (customMarketsCheckbox.checked) {
+                    // Get all selected marketplace checkboxes
+                    const selectedMarketplaces = Array.from(
+                        document.querySelectorAll('input[name="marketplaces"]:checked')
+                    ).map(cb => cb.value);
+                    
+                    // Create a hidden input to send the selected marketplaces
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'selected_marketplaces';
+                    hiddenInput.value = selectedMarketplaces.join(',');
+                    this.appendChild(hiddenInput);
+                }
+                
+                // Show search in progress
+                document.getElementById('search-button').disabled = true;
+                document.getElementById('search-loader').style.display = 'inline-block';
+                document.getElementById('search-indicator').style.display = 'block';
+                
+                // Hide no products message if it exists
+                const noProductsMessage = document.getElementById('no-products-message');
+                if (noProductsMessage) {
+                    noProductsMessage.style.display = 'none';
+                }
+            });
+            
+            // Auto-dismiss alerts after 5 seconds
+            setTimeout(function() {
+                let alerts = document.querySelectorAll('.alert');
+                alerts.forEach(function(alert) {
+                    let bsAlert = new bootstrap.Alert(alert);
+                    bsAlert.close();
+                });
+            }, 5000);
+            
+            // Fix for Clear & Refresh button
+            document.getElementById('refresh-button').addEventListener('click', function() {
+                // Show loading state
+                this.disabled = true;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Clearing...';
+                
+                // Create and submit a form to the clear endpoint
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/clear';
+                document.body.appendChild(form);
+                form.submit();
+            });
+            
+            // Add loading indicators to update buttons
+            const updateButtons = document.querySelectorAll('[id^="update-btn-"]');
+            updateButtons.forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    // Extract product ID from button ID
+                    const id = this.id.split('-').pop();
+                    
+                    // Show loading state
+                    this.classList.add('disabled');
+                    const loader = document.getElementById('update-loader-' + id);
+                    if (loader) {
+                        loader.style.display = 'inline-block';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
