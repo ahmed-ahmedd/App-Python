@@ -47,4 +47,10 @@ Handled website structure changes by using updated CSS selectors .
 Converted prices from EGP to USD for consistent comparison.
 
 ![Screenshot 2025-04-29 162047](https://github.com/user-attachments/assets/9aff064e-b27f-4c1e-8d7c-86d7d7ec4ef6)
+![Screenshot 2025-04-29 162233](https://github.com/user-attachments/assets/7e885ded-a40a-4889-805c-ec1329287dd5)
+![Screenshot 2025-04-29 162443](https://github.com/user-attachments/assets/35b32d58-afb4-4053-8c33-4eff8c00a9b8)
+
+
+
+
 
